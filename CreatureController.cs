@@ -1,8 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
-
+using UnityEngine.EventSystems;
 public class CreatureController : MonoBehaviour
 {
 
@@ -28,6 +27,7 @@ public class CreatureController : MonoBehaviour
     public float ageRate = 0.05f;
     public Vector3 skin;
     private float jumpEnergy;
+    public List<string> tennaLog;
 
 
 
@@ -36,6 +36,7 @@ public class CreatureController : MonoBehaviour
     public GameObject offspring;
     private float lifeSpanGene;
     private Color imgColor;
+    private CameraController cam;
 
     Transform target;
     Vector3 dir;
@@ -47,6 +48,7 @@ public class CreatureController : MonoBehaviour
     {
         Rigidbody2D rb = this.GetComponent<Rigidbody2D>();
         sprite = this.transform.Find("Creature").gameObject;
+        cam = Camera.main.GetComponent<CameraController>();
 
         if (randomGenes)
         {
@@ -71,7 +73,7 @@ public class CreatureController : MonoBehaviour
                 sprite.GetComponent<SpriteRenderer>().color += new Color(0.3f, 0.3f, 0.3f);
             }
 
-            if (Random.Range(0, 50) > 48)
+            if (Random.Range(0, 1000) > 994)
             {
                 colossal = true;
                 sprite.transform.localScale *= 5;
@@ -89,9 +91,31 @@ public class CreatureController : MonoBehaviour
 
         rb.drag = Random.Range(1f, 5f);
         rb.mass = sprite.transform.localScale.x * 0.7f;
+
+        tennaLog.Add(this.gameObject.name + " was born.");
+
+        StartCoroutine(TargetingLoop());
+
     }
 
-   
+    IEnumerator TargetingLoop()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(1);
+
+            if (FindTarget())
+            {
+                target = FindTarget().transform;
+            }
+
+            if (lookingForMate && FindMate())
+            {
+                target = FindMate().transform;
+            }
+
+        }
+    }
 
 
     // Update is called once per frame
@@ -115,18 +139,6 @@ public class CreatureController : MonoBehaviour
             lookingForMate = false;
             tag = "creature";
         }
-
-        if (FindTarget())
-        {
-           target = FindTarget().transform;
-        }
-
-        if (lookingForMate && FindMate())
-        {
-            target = FindMate().transform;
-        }
-
-        
 
         if (target != null)
         {
@@ -211,9 +223,7 @@ public class CreatureController : MonoBehaviour
     {
         if (collision.gameObject.tag == "food")
         {
-            energy += lifeSpan * 3;
-            lifeSpan -= ageRate;
-            Destroy(collision.gameObject);
+            Eat(collision.gameObject);
         }
 
         if(collision.gameObject.tag == "mating" && lookingForMate)
@@ -232,23 +242,28 @@ public class CreatureController : MonoBehaviour
 
     }
 
+
+    void Eat(GameObject food)
+    {
+        energy += lifeSpan * Random.Range(1f,2f);
+        lifeSpan -= ageRate;
+        Destroy(food);
+    }
+
     void Mate(GameObject mate)
     {
-        
-        CreatureController mateStats = mate.GetComponent<CreatureController>();
 
-        if (this.gameObject.name.GetHashCode() >= mate.name.GetHashCode())
+        CreatureController mateStats = mate.GetComponent<CreatureController>();
+        if (this.gameObject.name.GetHashCode() >= mate.name.GetHashCode() || mate.GetComponent<PlayerController>())
         {
             mateStats.energy -= mateStats.matingEnergy * 5;
             energy -= matingEnergy * 5;
             GameObject child = Instantiate(offspring, this.transform.localPosition, this.transform.rotation);
             CreatureController childStats = child.GetComponent<CreatureController>();
-
             child.transform.parent = this.transform.parent;
             child.transform.Find("Creature").localScale = (sprite.transform.localScale + mateStats.sprite.transform.localScale) / 2;
-            child.transform.Find("Creature").GetComponent<SpriteRenderer>().color = (sprite.GetComponent<SpriteRenderer>().color + sprite.GetComponent<SpriteRenderer>().color) / 2;
-
-            if (Random.Range(1, 100) < 99)
+            child.transform.Find("Creature").GetComponent<SpriteRenderer>().color = (sprite.GetComponent<SpriteRenderer>().color + mateStats.sprite.GetComponent<SpriteRenderer>().color) / 2;
+            if (Random.Range(1, 1000) < 994)
             {
                 childStats.randomGenes = false;
                 childStats.jumpForce = (jumpForce + mateStats.jumpForce) / 2;
@@ -266,19 +281,17 @@ public class CreatureController : MonoBehaviour
                 childStats.skin = (skin + mateStats.skin) / 2;
                 childStats.matingEnergy = (matingEnergy + mateStats.matingEnergy) / 2;
 
-
                 if (Random.Range(0, 100) > 98)
                 {
-                    childStats.colossal = true;
+                   childStats.colossal = true;
                 }
                 childStats.surname = surname;
                 child.name = randomName(Random.Range(2, 4)) + " " + surname;
 
-                
+
             }
             else
             {
-                print("Mutation occured.");
                 child.transform.localScale = Vector3.one;
             }
             children.Add(child.name);
@@ -286,15 +299,22 @@ public class CreatureController : MonoBehaviour
             childStats.parents.Add(mate.name);
             childCount++;
             mateStats.childCount++;
-            //Debug.Log(this.gameObject.name + " has bred with " + mate.name);
+
+            mateStats.tennaLog.Add(mate.name + " bred with " + this.gameObject.name);
+            tennaLog.Add(this.gameObject.name + " bred with " + mate.name);
+
+            if (cam.selectedCreature == this.gameObject)
+            {
+                cam.log.addToLog(this.gameObject.name + " bred with " + mate.name);
+
+            }
+
             GameObject.Find("TextManager").GetComponent<TextManager>().crittersBorn++;
         }
-
     }
 
     private void OnMouseEnter()
     {
-        Debug.Log("Highlighting");
         this.transform.Find("Creature_outline").GetComponent<SpriteRenderer>().enabled = true;
     }
 
@@ -306,19 +326,17 @@ public class CreatureController : MonoBehaviour
 
     private void OnMouseDown()
     {
-        Camera.main.GetComponent<CameraController>().SelectCreature(this.gameObject);
-
-        if (Input.GetMouseButtonDown(1))
+        if (!EventSystem.current.IsPointerOverGameObject())
         {
-            Vector3 pos = this.transform.position;
-            Camera.main.transform.position = new Vector3(pos.x, pos.y, -10);
-            Camera.main.transform.rotation = new Quaternion(0, 0, 0, 0);
-            Camera.main.transform.parent = this.transform;
+            if (Camera.main.GetComponent<CameraController>().selectedCreature != this.gameObject)
+            {
+                Camera.main.GetComponent<CameraController>().SelectCreature(this.gameObject);
+            }
+            Camera.main.GetComponent<CameraController>().trackingTenna = true;
+            InspectorController inspect = transform.parent.parent.Find("UI/Inspector/Tenna/Inspection").GetComponent<InspectorController>();
+            inspect.iC = this.transform.GetComponent<CreatureController>();
+            inspect.updateText();
         }
-
-        InspectorController inspect = transform.parent.parent.Find("Canvas/Inspection").GetComponent<InspectorController>();
-        inspect.iC = this.transform.GetComponent<CreatureController>();
-
     }
 
     string randomName(int syllables)
@@ -340,5 +358,9 @@ public class CreatureController : MonoBehaviour
         //print(gameObject.name + " Has lost the energy to keep trucking. They have died.");
         GameObject.Find("TextManager").GetComponent<TextManager>().crittersDied++;
         Destroy(this.gameObject);
+        if(cam.GetComponent<CameraController>().selectedCreature == this.gameObject)
+        {
+            cam.log.addToLog(this.gameObject.name + " has died. :(");
+        }
     }
 }

@@ -11,17 +11,33 @@ public class TextManager : MonoBehaviour
     Transform cm;
     List<int> genCount = new List<int>();
 
+    private Text text;
+
     private void Start()
     {
         cm = GameObject.Find("CritterManager").transform;
+        text = this.GetComponent<Text>();
+        updateText();
+
+        StartCoroutine(updateLoop());
     }
 
 
-    void Update()
+    IEnumerator updateLoop()
     {
-        Text text = this.GetComponent<Text>();
+        while (true)
+        {
+            yield return new WaitForSeconds(1);
+            updateText();
+        }
+    }
+
+
+    void updateText()
+    {
         text.text = "General Stats: \nCritters: " + countCritters() + "\nSexiest Critter (most children): " + getSexyCritter() + "\nGenerations: " + getGenCount() + "\nCritters Died: " + crittersDied + "\nCritters Born: " + crittersBorn;
     }
+
 
     public int countCritters()
     {

@@ -9,8 +9,12 @@ public class CameraController : MonoBehaviour
     public float maxZoom, minZoom;
     public float camSpeed;
     public GameObject selectedCreature;
+    public bool trackingTenna;
+    public LogScript log;
+
     private void Start()
     {
+        log = GameObject.FindGameObjectWithTag("pond").transform.Find("UI/Inspector/Log/TennaLog").GetComponent<LogScript>();
         curSize = Camera.main.orthographicSize;
         targetZ = curSize;
     }
@@ -34,30 +38,22 @@ public class CameraController : MonoBehaviour
 
         if (Input.GetKey("w"))
         {
-            this.transform.parent = null;
-            this.transform.rotation = new Quaternion(0, 0, 0, 0);
-
+            trackingTenna = false;
             transform.position += Vector3.up * Time.deltaTime * camSpeed * 10;
         }
         if (Input.GetKey("s"))
         {
-            this.transform.parent = null;
-            this.transform.rotation = new Quaternion(0, 0, 0, 0);
-
+            trackingTenna = false;
             transform.position -= Vector3.up * Time.deltaTime * camSpeed * 10;
         }
         if (Input.GetKey("a"))
         {
-            this.transform.parent = null;
-            this.transform.rotation = new Quaternion(0, 0, 0, 0);
-
+            trackingTenna = false;
             transform.position -= Vector3.right * Time.deltaTime * camSpeed * 10;
         }
         if (Input.GetKey("d"))
         {
-            this.transform.parent = null;
-            this.transform.rotation = new Quaternion(0, 0, 0, 0);
-
+            trackingTenna = false;
             transform.position += Vector3.right * Time.deltaTime * camSpeed * 10;
         }
         if (Input.GetKeyDown(KeyCode.Space))
@@ -80,16 +76,11 @@ public class CameraController : MonoBehaviour
         {
             Time.timeScale = 1;
         }
-        if (Input.GetKeyDown(KeyCode.V))
+
+        if(trackingTenna && selectedCreature != null)
         {
-            if(Time.timeScale != 8)
-            {
-                Time.timeScale = 8;
-            }
-            else
-            {
-                Time.timeScale = 1;
-            }
+            Vector3 targetPos = this.transform.position - selectedCreature.transform.position;
+            this.transform.position -= new Vector3(targetPos.x, targetPos.y, 0) * Time.deltaTime;
         }
 
     }
@@ -102,6 +93,10 @@ public class CameraController : MonoBehaviour
             selectedCreature.transform.Find("Creature_outline").GetComponent<SpriteRenderer>().enabled = false;
         }
         selectedCreature = newCreature;
+        trackingTenna = true;
+        GameObject.FindGameObjectWithTag("pond").transform.Find("UI/Inspector/Tenna/Inspection").GetComponent<InspectorController>().updateText();
+        log.constructLog(newCreature.GetComponent<CreatureController>().tennaLog);
+
     }
 
 }
